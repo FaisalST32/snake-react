@@ -15,6 +15,23 @@ const generateBoardCoord = (height, width) => {
   return boardCoords;
 };
 
+const getInitialSnakeCoords = (height, width) => {
+  return [
+    {
+      xCoord: Math.floor(height / 2),
+      yCoord: Math.max(0, Math.floor(width / 2 - 3)),
+    },
+    {
+      xCoord: Math.floor(height / 2),
+      yCoord: Math.max(1, Math.floor(width / 2 - 2)),
+    },
+    {
+      xCoord: Math.floor(height / 2),
+      yCoord: Math.max(2, Math.floor(width / 2 - 1)),
+    },
+  ];
+};
+
 const directions = {
   right: 'right',
   left: 'left',
@@ -25,20 +42,9 @@ const directions = {
 const Board = (props) => {
   const [boardCoords, setBoardCoords] = useState([]);
 
-  const [snakeCoords, setSnakeCoords] = useState([
-    {
-      xCoord: Math.floor(props.height / 2),
-      yCoord: Math.max(0, Math.floor(props.width / 2 - 3)),
-    },
-    {
-      xCoord: Math.floor(props.height / 2),
-      yCoord: Math.max(1, Math.floor(props.width / 2 - 2)),
-    },
-    {
-      xCoord: Math.floor(props.height / 2),
-      yCoord: Math.max(2, Math.floor(props.width / 2 - 1)),
-    },
-  ]);
+  const [snakeCoords, setSnakeCoords] = useState(
+    getInitialSnakeCoords(props.height, props.width)
+  );
 
   const direction = useRef(directions.right);
   const baitPosition = useRef({
@@ -87,17 +93,16 @@ const Board = (props) => {
     [props.height, props.width]
   );
 
-  const consumeBait = () => {
+  const consumeBait = (currSnakeCoords) => {
     let randomXcoord, randomYcoord;
     do {
       randomXcoord = Math.floor(Math.random() * props.height);
       randomYcoord = Math.floor(Math.random() * props.width);
     } while (
-      snakeCoords.some(
-        (coord) =>
-          coord.xCoord === randomXcoord && coord.yCoord === randomYcoord
-      ) ||
-      (randomYcoord === baitPosition.current.sxc &&
+      currSnakeCoords.some((coord) => {
+        return coord.xCoord === randomXcoord && coord.yCoord === randomYcoord;
+      }) ||
+      (randomYcoord === baitPosition.current.yCoord &&
         randomXcoord === baitPosition.current.xCoord)
     );
     baitPosition.current = { xCoord: randomXcoord, yCoord: randomYcoord };
@@ -109,22 +114,21 @@ const Board = (props) => {
       startTimer();
     }
     setSnakeCoords((prevCoords) => {
-      console.log('test');
       const newCoords = [...prevCoords];
       const lastCoords = { ...newCoords[prevCoords.length - 1] };
       const nextCoords = getNextCoords(lastCoords);
       const isGameOver = checkGameOver(nextCoords, prevCoords);
       if (isGameOver) {
-        clearInterval(interval.current);
-        alert('Game Over');
-        return prevCoords;
+        onGameOver();
+        return getInitialSnakeCoords(props.height, props.width);
       }
 
       if (
         nextCoords.xCoord === baitPosition.current.xCoord &&
         nextCoords.yCoord === baitPosition.current.yCoord
       ) {
-        consumeBait();
+        consumeBait(prevCoords);
+        props.pointScored();
       } else {
         newCoords.shift();
       }
@@ -134,12 +138,18 @@ const Board = (props) => {
   };
 
   const checkGameOver = (nextCoords, currentSnakeCoords) => {
-    console.log(nextCoords, snakeCoords);
     return currentSnakeCoords.some(
       (coords) =>
         coords.xCoord === nextCoords.xCoord &&
         coords.yCoord === nextCoords.yCoord
     );
+  };
+
+  const onGameOver = () => {
+    clearInterval(interval.current);
+    alert('Game Over');
+    direction.current = directions.right;
+    props.gameOver();
   };
 
   const checkSnake = (xCoord, yCoord) => {
@@ -224,6 +234,8 @@ Board.propTypes = {
   height: PropTypes.number.isRequired,
   width: PropTypes.number.isRequired,
   difficulty: PropTypes.number.isRequired,
+  gameOver: PropTypes.func,
+  pointScored: PropTypes.func,
 };
 
 export default Board;
